@@ -1,42 +1,43 @@
+### cloudbuild.yaml for CI/CD Pipeline
+
+### Set up substitutions for dynamic values
+substitutions:
+  _PROJECT_ID: <your-project-id> # Enter your project id
+  _REGION: <your-region> # Enter your region
+  _SERVICE_NAME: inventory-api
+  _REPOSITORY: cloud-run-source-deploy
+  # Define the full image name once to avoid repetition and errors
+  _IMAGE_NAME: ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}
+
 steps:
-  # Step 1: Build the Docker image from the Dockerfile
+  ### Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    id: Build
+    id: Build-Docker-Image
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '${_IMAGE_NAME}:$COMMIT_SHA'
       - '.'
 
-  # Step 2: Push the image to Google Artifact Registry
+  ### Step 2: Push the Docker image to Google Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    id: Push
+    id: Push-to-Artifact-Registry
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '${_IMAGE_NAME}:$COMMIT_SHA'
 
-  # Step 3: Deploy the image to Cloud Run
+  ### Step 3: Deploy the new image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: Deploy
+    id: Deploy-to-Cloud-Run
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
       - '${_SERVICE_NAME}'
-      - '--image'
-      - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
-      - '--region'
-      - '${_REGION}'
-      - '--allow-unauthenticated'
+      - '--image=${_IMAGE_NAME}:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated' # Allow unauthenticated access for this lab
 
-substitutions:
-  _PROJECT_ID: 'your-project-id'
-  _REGION: 'us-east1'
-  _SERVICE_NAME: 'inventory-api'
-  _REPOSITORY: 'cloud-run-source-deploy'
-
-options:
-  logging: CLOUD_LOGGING_ONLY
-
-images:
-  - '${_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+options: # This section defines global build options
+  logging: CLOUD_LOGGING_ONLY # This is the logging option
